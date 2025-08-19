@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw } from "lucide-react";
+import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 interface SavedLink {
   id: number;
@@ -17,6 +18,17 @@ interface SavedLink {
   title: string;
   label: string;
   userId: string;
+  folderId: number | null;
+  isFavorite: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+interface Folder {
+  id: number;
+  name: string;
+  userId: string;
+  isPinned?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -34,22 +46,62 @@ const predefinedLabels = [
 export default function Links() {
   const { user, isLoaded } = useUser();
   const [links, setLinks] = useState<SavedLink[]>([]);
+  const [folders, setFolders] = useState<Folder[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newLink, setNewLink] = useState({ url: "", title: "", label: "" });
+  const [isAddFolderDialogOpen, setIsAddFolderDialogOpen] = useState(false);
+  const [isRenameFolderDialogOpen, setIsRenameFolderDialogOpen] = useState(false);
+  const [isMoveLinkDialogOpen, setIsMoveLinkDialogOpen] = useState(false);
+  const [newLink, setNewLink] = useState({ url: "", title: "", label: "", folderId: null as number | null });
+  const [newFolderName, setNewFolderName] = useState("");
+  const [renameFolderName, setRenameFolderName] = useState("");
+  const [selectedFolderToRename, setSelectedFolderToRename] = useState<number | null>(null);
+  const [selectedLinkToMove, setSelectedLinkToMove] = useState<number | null>(null);
   const [customLabel, setCustomLabel] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
+  const [currentFolder, setCurrentFolder] = useState<number | null | undefined>(undefined);
+  const [sortBy, setSortBy] = useState<'date' | 'alphabetical' | 'favorites'>('date');
+  const [showAllFolders, setShowAllFolders] = useState(false);
   const [isFetchingTitle, setIsFetchingTitle] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
 
 
+  // Fetch folders from API
+  const fetchFolders = async () => {
+    try {
+      const response = await fetch('/api/folders');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch folders');
+      }
+      
+      const data = await response.json();
+      setFolders(data.folders.map((folder: Folder) => ({
+        ...folder,
+        createdAt: new Date(folder.createdAt),
+        updatedAt: new Date(folder.updatedAt)
+      })));
+    } catch (error) {
+      console.error('Error fetching folders:', error);
+      toast.error('Failed to load folders');
+    }
+  };
+
   // Fetch links from API
-  const fetchLinks = async (query?: string) => {
+  const fetchLinks = useCallback(async (query?: string) => {
     try {
       setIsLoading(true);
-      const url = query ? `/api/links?q=${encodeURIComponent(query)}` : '/api/links';
+      const params = new URLSearchParams();
+      if (query) params.append('q', query);
+      // Only filter by folder if currentFolder is explicitly set (not undefined)
+      if (currentFolder !== undefined) {
+        params.append('folderId', currentFolder === null ? 'null' : currentFolder.toString());
+      }
+      params.append('sortBy', sortBy);
+      
+      const url = `/api/links?${params.toString()}`;
       const response = await fetch(url);
       
       if (!response.ok) {
@@ -67,6 +119,49 @@ export default function Links() {
       toast.error('Failed to load links');
     } finally {
       setIsLoading(false);
+    }
+  }, [currentFolder, sortBy]);
+
+  // Create new folder
+  const handleAddFolder = async () => {
+    if (!newFolderName.trim()) {
+      toast.error('Please enter a folder name');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/folders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: newFolderName.trim(),
+          isPinned: false,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create folder');
+      }
+
+      const data = await response.json();
+      const createdFolder = {
+        ...data.folder,
+        createdAt: new Date(data.folder.createdAt),
+        updatedAt: new Date(data.folder.updatedAt)
+      };
+
+      setFolders(prev => [...prev, createdFolder]);
+      setNewFolderName("");
+      setIsAddFolderDialogOpen(false);
+      toast.success('Folder created successfully!');
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast.error('Failed to create folder');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -88,7 +183,8 @@ export default function Links() {
         body: JSON.stringify({
           url: newLink.url,
           title: newLink.title,
-          label,
+        label,
+          folderId: newLink.folderId,
         }),
       });
 
@@ -104,7 +200,7 @@ export default function Links() {
       };
 
       setLinks(prev => [createdLink, ...prev]);
-      setNewLink({ url: "", title: "", label: "" });
+      setNewLink({ url: "", title: "", label: "", folderId: null });
       setCustomLabel("");
       setSelectedLabel("");
       setIsAddDialogOpen(false);
@@ -138,6 +234,167 @@ export default function Links() {
 
   const handleOpenLink = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
+  // Toggle favorite status
+  const handleToggleFavorite = async (id: number) => {
+    try {
+      const response = await fetch(`/api/links/${id}/favorite`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle favorite');
+      }
+
+      const data = await response.json();
+      
+      setLinks(prev => prev.map(link => 
+        link.id === id 
+          ? { ...link, isFavorite: data.isFavorite } 
+          : link
+      ));
+
+      toast.success(data.isFavorite ? 'Added to favorites!' : 'Removed from favorites!');
+    } catch (error) {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
+    }
+  };
+
+  // Move link to folder
+  const handleMoveToFolder = async (linkId: number, folderId: number | null) => {
+    try {
+      const response = await fetch(`/api/links/${linkId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          folderId: folderId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to move link');
+      }
+
+      const data = await response.json();
+      
+      setLinks(prev => prev.map(link => 
+        link.id === linkId 
+          ? { ...link, folderId: data.link.folderId } 
+          : link
+      ));
+
+      const folderName = folderId ? folders.find(f => f.id === folderId)?.name : 'No Folder';
+      toast.success(`Link moved to ${folderName}!`);
+      setIsMoveLinkDialogOpen(false);
+      setSelectedLinkToMove(null);
+    } catch (error) {
+      console.error('Error moving link:', error);
+      toast.error('Failed to move link');
+    }
+  };
+
+  // Rename folder
+  const handleRenameFolder = async () => {
+    if (!renameFolderName.trim() || !selectedFolderToRename) {
+      toast.error('Please enter a folder name');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch(`/api/folders/${selectedFolderToRename}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: renameFolderName.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to rename folder');
+      }
+
+      const data = await response.json();
+      const updatedFolder = {
+        ...data.folder,
+        createdAt: new Date(data.folder.createdAt),
+        updatedAt: new Date(data.folder.updatedAt)
+      };
+
+      setFolders(prev => prev.map(folder => 
+        folder.id === selectedFolderToRename ? updatedFolder : folder
+      ));
+      
+      setRenameFolderName("");
+      setSelectedFolderToRename(null);
+      setIsRenameFolderDialogOpen(false);
+      toast.success('Folder renamed successfully!');
+    } catch (error) {
+      console.error('Error renaming folder:', error);
+      toast.error('Failed to rename folder');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Delete folder
+  const handleDeleteFolder = async (folderId: number) => {
+    try {
+      const response = await fetch(`/api/folders/${folderId}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete folder');
+      }
+
+      setFolders(prev => prev.filter(folder => folder.id !== folderId));
+      
+      // Refresh links to show updated folder assignments
+      fetchLinks(searchQuery || undefined);
+      
+      // If we're currently viewing the deleted folder, go back to all links
+      if (currentFolder === folderId) {
+        setCurrentFolder(undefined);
+      }
+      
+      toast.success('Folder deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting folder:', error);
+      toast.error('Failed to delete folder');
+    }
+  };
+
+  // Toggle folder pin status
+  const handleToggleFolderPin = async (folderId: number) => {
+    try {
+      const response = await fetch(`/api/folders/${folderId}/pin`, {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle folder pin');
+      }
+
+      const data = await response.json();
+      
+      setFolders(prev => prev.map(folder => 
+        folder.id === folderId 
+          ? { ...folder, isPinned: data.isPinned } 
+          : folder
+      ));
+
+      toast.success(data.isPinned ? 'Folder pinned!' : 'Folder unpinned!');
+    } catch (error) {
+      console.error('Error toggling folder pin:', error);
+      toast.error('Failed to update folder pin status');
+    }
   };
 
   const fetchTitleFromUrl = async (url: string) => {
@@ -229,12 +486,20 @@ export default function Links() {
     }, 300);
   };
 
-  // Load links on component mount
+  // Load data on component mount
   useEffect(() => {
     if (isLoaded && user) {
+      fetchFolders();
       fetchLinks();
     }
-  }, [isLoaded, user]);
+  }, [isLoaded, user, fetchLinks]);
+
+  // Refetch links when folder or sort changes
+  useEffect(() => {
+    if (isLoaded && user) {
+      fetchLinks(searchQuery || undefined);
+    }
+  }, [currentFolder, sortBy, isLoaded, user, searchQuery, fetchLinks]);
 
   // Don't render until user is loaded
   if (!isLoaded) {
@@ -259,13 +524,182 @@ export default function Links() {
       <Container variant={"fullMobileConstrainedPadded"} className="flex-1 py-8">
         <div className="flex flex-col gap-8">
           {/* Header Section */}
-          <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
-            <h1 className="font-sans text-2xl sm:text-3xl font-semibold">Your Links</h1>
-            <Button size="lg" className="w-full sm:w-auto" onClick={() => setIsAddDialogOpen(true)}>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div className="flex items-center gap-4">
+                <h1 className="font-sans text-2xl sm:text-3xl font-semibold">
+                  {currentFolder === undefined ? 'All Links' : 
+                   currentFolder === null ? 'Unfoldered Links' :
+                   folders.find(f => f.id === currentFolder)?.name || 'Folder'}
+                </h1>
+                {currentFolder !== undefined && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => setCurrentFolder(undefined)}
+                    className="text-muted-foreground"
+                  >
+                    ← Back to All Links
+                  </Button>
+                )}
+              </div>
+              
+              <div className="flex gap-2 w-full sm:w-auto">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="lg" className="flex-1 sm:flex-initial">
               <Plus className="w-5 h-5 mr-2" />
-              Add New Link
-            </Button>
+                      Add New
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setIsAddDialogOpen(true)}>
+                      <LinkIcon className="w-4 h-4 mr-2" />
+                      Add Link
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsAddFolderDialogOpen(true)}>
+                      <FolderPlus className="w-4 h-4 mr-2" />
+                      Create Folder
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="lg">
+                      <ArrowUpDown className="w-5 h-5 mr-2" />
+                      Sort
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => setSortBy('date')}>
+                      <Calendar className="w-4 h-4 mr-2" />
+                      Date Added {sortBy === 'date' && '✓'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('alphabetical')}>
+                      <SortAsc className="w-4 h-4 mr-2" />
+                      Alphabetical {sortBy === 'alphabetical' && '✓'}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setSortBy('favorites')}>
+                      <Heart className="w-4 h-4 mr-2" />
+                      Favorites First {sortBy === 'favorites' && '✓'}
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                {/* Folder Management Menu - Only show when viewing a specific folder */}
+                {currentFolder !== undefined && currentFolder !== null && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="lg">
+                        <MoreVertical className="w-5 h-5" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => handleToggleFolderPin(currentFolder)}>
+                        {folders.find(f => f.id === currentFolder)?.isPinned ? (
+                          <>
+                            <PinOff className="w-4 h-4 mr-2" />
+                            Unpin Folder
+                          </>
+                        ) : (
+                          <>
+                            <Pin className="w-4 h-4 mr-2" />
+                            Pin Folder
+                          </>
+                        )}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedFolderToRename(currentFolder);
+                        setRenameFolderName(folders.find(f => f.id === currentFolder)?.name || '');
+                        setIsRenameFolderDialogOpen(true);
+                      }}>
+                        <Edit2 className="w-4 h-4 mr-2" />
+                        Rename Folder
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteFolder(currentFolder)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete Folder
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+              </div>
+            </div>
+
+                        {/* Folders Navigation */}
+            {folders.length > 0 && (
+              <div className="flex gap-2 flex-wrap items-center">
+                <Badge 
+                  variant={currentFolder === undefined ? "default" : "outline"} 
+                  className="cursor-pointer"
+                  onClick={() => setCurrentFolder(undefined)}
+                >
+                  <LinkIcon className="w-3 h-3 mr-1" />
+                  All Links
+                </Badge>
+                <Badge 
+                  variant={currentFolder === null ? "default" : "outline"} 
+                  className="cursor-pointer"
+                  onClick={() => setCurrentFolder(null)}
+                >
+                  <FolderOpen className="w-3 h-3 mr-1" />
+                  Unfoldered
+                </Badge>
+                
+                {/* Display folders with limit */}
+                {(() => {
+                  const FOLDER_DISPLAY_LIMIT = 5;
+                  const foldersToShow = showAllFolders ? folders : folders.slice(0, FOLDER_DISPLAY_LIMIT);
+                  
+                  return (
+                    <>
+                      {foldersToShow.map((folder) => (
+                        <Badge 
+                          key={folder.id}
+                          variant={currentFolder === folder.id ? "default" : "outline"} 
+                          className="cursor-pointer flex items-center gap-1"
+                          onClick={() => setCurrentFolder(folder.id)}
+                        >
+                          {folder.isPinned && <Pin className="w-3 h-3" />}
+                          <Folder className="w-3 h-3" />
+                          {folder.name}
+                        </Badge>
+                      ))}
+                      
+                      {/* Show All / Show Less button */}
+                      {folders.length > FOLDER_DISPLAY_LIMIT && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowAllFolders(!showAllFolders)}
+                          className="h-6 px-2 text-xs"
+                        >
+                          {showAllFolders ? (
+                            <>
+                              <ChevronUp className="w-3 h-3 mr-1" />
+                              Show Less
+                            </>
+                          ) : (
+                            <>
+                              <ChevronDown className="w-3 h-3 mr-1" />
+                              Show All ({folders.length - FOLDER_DISPLAY_LIMIT} more)
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* Add Link Dialog */}
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogContent>
                 <DialogHeader>
@@ -282,7 +716,7 @@ export default function Links() {
                         <Input
                           type="text"
                           placeholder="example.com"
-                          value={newLink.url}
+                      value={newLink.url}
                           onChange={(e) => handleUrlChange(e.target.value)}
                           className="pl-[70px] bg-background/50"
                         />
@@ -359,6 +793,33 @@ export default function Links() {
                       />
                     </div>
                   </div>
+                  
+                  {/* Folder Selection */}
+                  <div className="flex flex-col gap-2">
+                    <label className="text-sm font-medium flex items-center gap-2">
+                      <Folder className="w-4 h-4" /> Folder (Optional)
+                    </label>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge
+                        variant={newLink.folderId === null ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => setNewLink(prev => ({ ...prev, folderId: null }))}
+                      >
+                        No Folder
+                      </Badge>
+                      {folders.map((folder) => (
+                        <Badge
+                          key={folder.id}
+                          variant={newLink.folderId === folder.id ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => setNewLink(prev => ({ ...prev, folderId: folder.id }))}
+                        >
+                          <Folder className="w-3 h-3 mr-1" />
+                          {folder.name}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
@@ -377,7 +838,188 @@ export default function Links() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+
+          {/* Add Folder Dialog */}
+          <Dialog open={isAddFolderDialogOpen} onOpenChange={setIsAddFolderDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Folder</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Folder Name</label>
+                  <Input
+                    type="text"
+                    placeholder="Enter folder name"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddFolderDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddFolder} disabled={isSubmitting || !newFolderName.trim()}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Creating...
+                    </>
+                  ) : (
+                    'Create Folder'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Rename Folder Dialog */}
+          <Dialog open={isRenameFolderDialogOpen} onOpenChange={setIsRenameFolderDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Rename Folder</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Folder Name</label>
+                  <Input
+                    type="text"
+                    placeholder="Enter new folder name"
+                    value={renameFolderName}
+                    onChange={(e) => setRenameFolderName(e.target.value)}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setIsRenameFolderDialogOpen(false);
+                  setRenameFolderName("");
+                  setSelectedFolderToRename(null);
+                }} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleRenameFolder} disabled={isSubmitting || !renameFolderName.trim()}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Renaming...
+                    </>
+                  ) : (
+                    'Rename Folder'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* Move Link to Folder Dialog */}
+          <Dialog open={isMoveLinkDialogOpen} onOpenChange={setIsMoveLinkDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Move Link to Folder</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <p className="text-sm text-muted-foreground">
+                  Choose a folder to move this link to, or create a new folder.
+                </p>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Select Folder</label>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant="outline"
+                      className="cursor-pointer hover:bg-secondary"
+                      onClick={() => handleMoveToFolder(selectedLinkToMove!, null)}
+                    >
+                      <FolderOpen className="w-3 h-3 mr-1" />
+                      No Folder
+                    </Badge>
+                    {folders.map((folder) => (
+                      <Badge
+                        key={folder.id}
+                        variant="outline"
+                        className="cursor-pointer hover:bg-secondary"
+                        onClick={() => handleMoveToFolder(selectedLinkToMove!, folder.id)}
+                      >
+                        <Folder className="w-3 h-3 mr-1" />
+                        {folder.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 h-px bg-border"></div>
+                  <span className="text-xs text-muted-foreground">OR</span>
+                  <div className="flex-1 h-px bg-border"></div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">Create New Folder</label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="New folder name"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      className="flex-1"
+                    />
+                    <Button 
+                      onClick={async () => {
+                        if (!newFolderName.trim()) {
+                          toast.error('Please enter a folder name');
+                          return;
+                        }
+                        try {
+                          setIsSubmitting(true);
+                          const response = await fetch('/api/folders', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                              name: newFolderName.trim(),
+                              isPinned: false,
+                            }),
+                          });
+
+                          if (!response.ok) {
+                            throw new Error('Failed to create folder');
+                          }
+
+                          const data = await response.json();
+                          const createdFolder = {
+                            ...data.folder,
+                            createdAt: new Date(data.folder.createdAt),
+                            updatedAt: new Date(data.folder.updatedAt)
+                          };
+
+                          setFolders(prev => [...prev, createdFolder]);
+                          handleMoveToFolder(selectedLinkToMove!, createdFolder.id);
+                          setNewFolderName("");
+                        } catch (error) {
+                          console.error('Error creating folder:', error);
+                          toast.error('Failed to create folder');
+                        } finally {
+                          setIsSubmitting(false);
+                        }
+                      }}
+                      disabled={isSubmitting || !newFolderName.trim()}
+                    >
+                      Create & Move
+                    </Button>
+                  </div>
+                </div>
           </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => {
+                  setIsMoveLinkDialogOpen(false);
+                  setSelectedLinkToMove(null);
+                  setNewFolderName("");
+                }}>
+                  Cancel
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Search Bar */}
           <div className="relative">
@@ -417,42 +1059,78 @@ export default function Links() {
               {links.map((link) => (
                 <div
                   key={link.id}
-                  className="group flex flex-col gap-2 p-4 rounded-xl border bg-background/50 hover:bg-background/80 transition-colors cursor-pointer"
-                  onClick={() => handleOpenLink(link.url)}
+                  className="flex flex-col gap-3 p-4 rounded-xl border bg-background/50 hover:bg-background/80 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-medium line-clamp-1">{link.title}</h3>
-                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex-1 cursor-pointer" onClick={() => handleOpenLink(link.url)}>
+                      <h3 className="font-medium line-clamp-1 flex items-center gap-2">
+                        {link.isFavorite && <Heart className="w-4 h-4 fill-red-500 text-red-500" />}
+                        {link.title}
+                      </h3>
+                    </div>
+                    <div className="flex gap-1">
                       <Button 
                         variant="ghost" 
                         size="icon" 
                         className="h-8 w-8"
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleOpenLink(link.url);
+                          handleToggleFavorite(link.id);
                         }}
+                        title={link.isFavorite ? "Remove from favorites" : "Add to favorites"}
                       >
-                        <ExternalLink className="w-4 h-4" />
+                        <Heart className={`w-4 h-4 ${link.isFavorite ? 'fill-red-500 text-red-500' : 'text-muted-foreground'}`} />
                       </Button>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteLink(link.id);
-                        }}
-                      >
-                        <Trash2 className="w-4 h-4" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={(e) => e.stopPropagation()}
+                            title="More options"
+                          >
+                            <MoreVertical className="w-4 h-4 text-muted-foreground" />
                       </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem onClick={() => handleOpenLink(link.url)}>
+                            <ExternalLink className="w-4 h-4 mr-2" />
+                            Open Link
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => {
+                            setSelectedLinkToMove(link.id);
+                            setIsMoveLinkDialogOpen(true);
+                          }}>
+                            <Folder className="w-4 h-4 mr-2" />
+                            Move to Folder
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteLink(link.id)}
+                            className="text-destructive"
+                          >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  
+                  <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleOpenLink(link.url)}>
                     <p className="text-sm text-muted-foreground line-clamp-1 flex-1">{link.url}</p>
                     <Badge variant="secondary" className="shrink-0">{link.label}</Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Added {link.createdAt.toLocaleDateString()}
+                  
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Added {link.createdAt.toLocaleDateString()}</span>
+                    {link.folderId && (
+                      <Badge variant="outline" className="text-xs">
+                        <Folder className="w-3 h-3 mr-1" />
+                        {folders.find(f => f.id === link.folderId)?.name || 'Unknown'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               ))}

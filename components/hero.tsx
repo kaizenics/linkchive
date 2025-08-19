@@ -36,7 +36,7 @@ export function Hero() {
                             />
                         </h1>
 
-                        <p className="font-sans text-center text-lg mx-auto max-w-3xl leading-tight">
+                        <p className="font-sans text-center text-sm md:text-lg mx-auto max-w-3xl">
                             The bookmark manager with privacy at its core. linkchive uses Stacks technology to encrypt your saved links so only you can see them.
                         </p>
                     </div>
