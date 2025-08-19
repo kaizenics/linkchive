@@ -13,7 +13,7 @@ export function About() {
             <h2 className="text-3xl sm:text-4xl font-semibold mb-4">
               Your Links, Your Control
             </h2>
-            <p className="text-muted-foreground text-lg max-w-3xl mx-auto leading-relaxed">
+            <p className="text-muted-foreground text-sm md:text-lg max-w-3xl mx-auto">
               Linkchive is built on the principle that your bookmarks should be yours alone.
               Using advanced encryption, we ensure your data stays private and secure.
             </p>
@@ -89,7 +89,7 @@ export function About() {
             <h2 className="text-3xl sm:text-4xl font-semibold">
               Ready to Take Control?
             </h2>
-            <p className="text-muted-foreground text-lg leading-relaxed">
+            <p className="text-muted-foreground text-sm md:text-lg">
               Join thousands of users who trust Linkchive to keep their bookmarks
               private, organized, and accessible.
             </p>

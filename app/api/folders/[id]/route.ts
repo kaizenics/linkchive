@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getLinkById, updateLink, deleteLink } from '@/db/queries';
+import { getFolderById, updateFolder, deleteFolder } from '@/db/queries';
 
-// GET /api/links/[id] - Get a specific link
+// GET /api/folders/[id] - Get a specific folder
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -18,31 +18,31 @@ export async function GET(
     }
 
     const { id } = await params;
-    const linkId = parseInt(id);
+    const folderId = parseInt(id);
 
-    if (isNaN(linkId)) {
+    if (isNaN(folderId)) {
       return NextResponse.json(
-        { error: 'Invalid link ID' },
+        { error: 'Invalid folder ID' },
         { status: 400 }
       );
     }
 
-    const link = await getLinkById(linkId, userId);
+    const folder = await getFolderById(folderId, userId);
 
-    if (!link) {
+    if (!folder) {
       return NextResponse.json(
-        { error: 'Link not found' },
+        { error: 'Folder not found' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({ 
       success: true, 
-      link 
+      folder 
     });
 
   } catch (error) {
-    console.error('Error fetching link:', error);
+    console.error('Error fetching folder:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -50,7 +50,7 @@ export async function GET(
   }
 }
 
-// PUT /api/links/[id] - Update a specific link
+// PUT /api/folders/[id] - Update a specific folder
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,58 +66,41 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const linkId = parseInt(id);
+    const folderId = parseInt(id);
 
-    if (isNaN(linkId)) {
+    if (isNaN(folderId)) {
       return NextResponse.json(
-        { error: 'Invalid link ID' },
+        { error: 'Invalid folder ID' },
         { status: 400 }
       );
     }
 
     const body = await request.json();
-    const { url, title, label, folderId, isFavorite } = body;
+    const { name } = body;
 
-    const updateData: {
-      url?: string;
-      title?: string;
-      label?: string;
-      folderId?: number | null;
-      isFavorite?: boolean;
-    } = {};
-    if (url !== undefined) {
-      updateData.url = url.startsWith('http://') || url.startsWith('https://') 
-        ? url 
-        : `https://${url}`;
-    }
-    if (title !== undefined) updateData.title = title;
-    if (label !== undefined) updateData.label = label;
-    if (folderId !== undefined) updateData.folderId = folderId;
-    if (isFavorite !== undefined) updateData.isFavorite = isFavorite;
-
-    if (Object.keys(updateData).length === 0) {
+    if (!name || typeof name !== 'string' || name.trim().length === 0) {
       return NextResponse.json(
-        { error: 'No valid fields to update' },
+        { error: 'Folder name is required' },
         { status: 400 }
       );
     }
 
-    const updatedLink = await updateLink(linkId, userId, updateData);
+    const updatedFolder = await updateFolder(folderId, userId, { name: name.trim() });
 
-    if (!updatedLink) {
+    if (!updatedFolder) {
       return NextResponse.json(
-        { error: 'Link not found or unauthorized' },
+        { error: 'Folder not found or unauthorized' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({ 
       success: true, 
-      link: updatedLink 
+      folder: updatedFolder 
     });
 
   } catch (error) {
-    console.error('Error updating link:', error);
+    console.error('Error updating folder:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -125,7 +108,7 @@ export async function PUT(
   }
 }
 
-// DELETE /api/links/[id] - Delete a specific link
+// DELETE /api/folders/[id] - Delete a specific folder
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -141,31 +124,31 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const linkId = parseInt(id);
+    const folderId = parseInt(id);
 
-    if (isNaN(linkId)) {
+    if (isNaN(folderId)) {
       return NextResponse.json(
-        { error: 'Invalid link ID' },
+        { error: 'Invalid folder ID' },
         { status: 400 }
       );
     }
 
-    const deleted = await deleteLink(linkId, userId);
+    const deleted = await deleteFolder(folderId, userId);
 
     if (!deleted) {
       return NextResponse.json(
-        { error: 'Link not found or unauthorized' },
+        { error: 'Folder not found or unauthorized' },
         { status: 404 }
       );
     }
 
     return NextResponse.json({ 
       success: true, 
-      message: 'Link deleted successfully' 
+      message: 'Folder deleted successfully' 
     });
 
   } catch (error) {
-    console.error('Error deleting link:', error);
+    console.error('Error deleting folder:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

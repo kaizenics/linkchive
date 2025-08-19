@@ -14,17 +14,24 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const query = searchParams.get('q');
+    const folderIdParam = searchParams.get('folderId');
+    const sortBy = searchParams.get('sortBy') as 'date' | 'alphabetical' | 'favorites' || 'date';
 
-    let links;
-    if (query) {
-      // Search links if query parameter is provided
-      links = await searchLinks(userId, query);
-    } else {
-      // Get all links for the user
-      links = await getLinksByUserId(userId);
+    let folderId: number | null | undefined = undefined;
+    if (folderIdParam !== null) {
+      if (folderIdParam === 'null') {
+        folderId = null; // No folder (root level)
+      } else {
+        const parsedFolderId = parseInt(folderIdParam);
+        if (!isNaN(parsedFolderId)) {
+          folderId = parsedFolderId;
+        }
+      }
     }
+
+    const links = await getLinksByUserId(userId, query || undefined, folderId, sortBy);
 
     return NextResponse.json({ 
       success: true, 
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { url, title, label } = body;
+    const { url, title, label, folderId } = body;
 
     // Validate required fields
     if (!url || !title || !label) {
@@ -74,6 +81,8 @@ export async function POST(request: NextRequest) {
       title,
       label,
       userId,
+      folderId: folderId || null,
+      isFavorite: false,
     });
 
     return NextResponse.json({ 
