@@ -3,7 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { getFoldersByUserId, createFolder } from '@/db/queries';
 
 // GET /api/folders - Get all folders for the authenticated user
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const { userId } = await auth();
     

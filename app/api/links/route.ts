@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { getLinksByUserId, createLink, searchLinks } from '@/db/queries';
+import { getLinksByUserId, createLink } from '@/db/queries';
 
 // GET /api/links - Get all links for the authenticated user
 export async function GET(request: NextRequest) {

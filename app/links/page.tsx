@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
 import { Navbar } from "@/components/navbar";
@@ -90,7 +90,7 @@ export default function Links() {
   };
 
   // Fetch links from API
-  const fetchLinks = async (query?: string) => {
+  const fetchLinks = useCallback(async (query?: string) => {
     try {
       setIsLoading(true);
       const params = new URLSearchParams();
@@ -120,7 +120,7 @@ export default function Links() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [currentFolder, sortBy]);
 
   // Create new folder
   const handleAddFolder = async () => {
@@ -361,7 +361,7 @@ export default function Links() {
       
       // If we're currently viewing the deleted folder, go back to all links
       if (currentFolder === folderId) {
-        setCurrentFolder(undefined as any);
+        setCurrentFolder(undefined);
       }
       
       toast.success('Folder deleted successfully!');
@@ -492,14 +492,14 @@ export default function Links() {
       fetchFolders();
       fetchLinks();
     }
-  }, [isLoaded, user]);
+  }, [isLoaded, user, fetchLinks]);
 
   // Refetch links when folder or sort changes
   useEffect(() => {
     if (isLoaded && user) {
       fetchLinks(searchQuery || undefined);
     }
-  }, [currentFolder, sortBy]);
+  }, [currentFolder, sortBy, isLoaded, user, searchQuery, fetchLinks]);
 
   // Don't render until user is loaded
   if (!isLoaded) {
@@ -536,7 +536,7 @@ export default function Links() {
                   <Button 
                     variant="ghost" 
                     size="sm" 
-                    onClick={() => setCurrentFolder(undefined as any)}
+                    onClick={() => setCurrentFolder(undefined)}
                     className="text-muted-foreground"
                   >
                     ← Back to All Links
@@ -637,7 +637,7 @@ export default function Links() {
                 <Badge 
                   variant={currentFolder === undefined ? "default" : "outline"} 
                   className="cursor-pointer"
-                  onClick={() => setCurrentFolder(undefined as any)}
+                  onClick={() => setCurrentFolder(undefined)}
                 >
                   <LinkIcon className="w-3 h-3 mr-1" />
                   All Links
