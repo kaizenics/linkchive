@@ -7,10 +7,10 @@ import { Github, Twitter } from "lucide-react";
 export function Footer() {
   return (
     <footer className="border-t py-12 mt-auto">
-      <Container variant={"fullMobileBreakpointPadded"}>
+      <Container variant={"fullMobileConstrainedPadded"}>
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <h3 className="font-lexend text-xl font-medium">Linkchive</h3>
+            <h3 className="font-lexend text-xl font-medium">linkchive.</h3>
             <p className="text-muted-foreground text-center md:text-left">
               Your private bookmark manager, powered by<br className="hidden md:inline" />
               end-to-end encryption and Stacks technology.
@@ -21,7 +21,7 @@ export function Footer() {
             <div className="flex gap-4">
               <Button variant="ghost" size="icon" asChild>
                 <a
-                  href="https://github.com/yourusername/linkchive"
+                  href="https://github.com/kaizenics/linkchive"
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label="GitHub"
@@ -52,7 +52,7 @@ export function Footer() {
               </a>
             </div>
             <p className="text-sm text-muted-foreground">
-              © {new Date().getFullYear()} Linkchive. All rights reserved.
+              © {new Date().getFullYear()} linkchive. All rights reserved.
             </p>
           </div>
         </div>

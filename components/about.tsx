@@ -7,7 +7,7 @@ import { Globe, Lock, FileText } from "lucide-react";
 export function About() {
   return (
     <div className="py-16">
-      <Container variant={"fullMobileBreakpointPadded"}>
+      <Container variant={"fullMobileConstrainedPadded"}>
         <div className="flex flex-col gap-16">
           <div className="text-center">
             <h2 className="font-lexend text-3xl sm:text-4xl font-semibold mb-4">
