@@ -1,3 +1,5 @@
+/* eslint-disable react-hooks/exhaustive-deps */
+
 "use client";
 
 import { ElementType, useEffect, useRef, useState, createElement } from "react";

@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { useUser } from "@clerk/nextjs";
 import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
@@ -11,11 +12,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 
 interface SavedLink {
-  id: string;
+  id: number;
   url: string;
   title: string;
   label: string;
+  userId: string;
   createdAt: Date;
+  updatedAt: Date;
 }
 
 const predefinedLabels = [
@@ -29,6 +32,7 @@ const predefinedLabels = [
 ];
 
 export default function Links() {
+  const { user, isLoaded } = useUser();
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -36,30 +40,100 @@ export default function Links() {
   const [customLabel, setCustomLabel] = useState("");
   const [selectedLabel, setSelectedLabel] = useState("");
   const [isFetchingTitle, setIsFetchingTitle] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
 
-  const handleAddLink = () => {
-    const label = customLabel || selectedLabel;
-    if (newLink.url && newLink.title && label) {
-      const fullUrl = newLink.url.startsWith('http://') || newLink.url.startsWith('https://') ? newLink.url : `https://${newLink.url}`;
+  // Fetch links from API
+  const fetchLinks = async (query?: string) => {
+    try {
+      setIsLoading(true);
+      const url = query ? `/api/links?q=${encodeURIComponent(query)}` : '/api/links';
+      const response = await fetch(url);
       
-      setLinks(prev => [{
-        ...newLink,
-        url: fullUrl,
-        id: Math.random().toString(36).substr(2, 9),
-        label,
-        createdAt: new Date()
-      }, ...prev]);
+      if (!response.ok) {
+        throw new Error('Failed to fetch links');
+      }
+      
+      const data = await response.json();
+      setLinks(data.links.map((link: SavedLink) => ({
+        ...link,
+        createdAt: new Date(link.createdAt),
+        updatedAt: new Date(link.updatedAt)
+      })));
+    } catch (error) {
+      console.error('Error fetching links:', error);
+      toast.error('Failed to load links');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Create new link
+  const handleAddLink = async () => {
+    const label = customLabel || selectedLabel;
+    if (!newLink.url || !newLink.title || !label) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      const response = await fetch('/api/links', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url: newLink.url,
+          title: newLink.title,
+          label,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to create link');
+      }
+
+      const data = await response.json();
+      const createdLink = {
+        ...data.link,
+        createdAt: new Date(data.link.createdAt),
+        updatedAt: new Date(data.link.updatedAt)
+      };
+
+      setLinks(prev => [createdLink, ...prev]);
       setNewLink({ url: "", title: "", label: "" });
       setCustomLabel("");
       setSelectedLabel("");
       setIsAddDialogOpen(false);
+      toast.success('Link added successfully!');
+    } catch (error) {
+      console.error('Error creating link:', error);
+      toast.error('Failed to add link');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteLink = (id: string) => {
-    setLinks(prev => prev.filter(link => link.id !== id));
+  // Delete link
+  const handleDeleteLink = async (id: number) => {
+    try {
+      const response = await fetch(`/api/links/${id}`, {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete link');
+      }
+
+      setLinks(prev => prev.filter(link => link.id !== id));
+      toast.success('Link deleted successfully!');
+    } catch (error) {
+      console.error('Error deleting link:', error);
+      toast.error('Failed to delete link');
+    }
   };
 
   const handleOpenLink = (url: string) => {
@@ -96,8 +170,6 @@ export default function Links() {
       }
     } catch (error) {
       console.error('Error fetching title:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       
       try {
         const urlObj = new URL(url);
@@ -145,15 +217,44 @@ export default function Links() {
     }
   };
 
-  // Filter links based on search query
-  const filteredLinks = links.filter(link => 
-    link.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    link.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    link.label.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Handle search with debounce
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    
+    // Debounce search API calls
+    setTimeout(() => {
+      if (searchQuery === query) {
+        fetchLinks(query || undefined);
+      }
+    }, 300);
+  };
+
+  // Load links on component mount
+  useEffect(() => {
+    if (isLoaded && user) {
+      fetchLinks();
+    }
+  }, [isLoaded, user]);
+
+  // Don't render until user is loaded
+  if (!isLoaded) {
+    return (
+      <>
+        <Navbar />
+        <Container variant={"fullMobileConstrainedPadded"} className="flex-1 py-8">
+          <div className="flex items-center justify-center min-h-[50vh]">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          </div>
+        </Container>
+      </>
+    );
+  }
 
   return (
-  <>
+    <>
       <Navbar />
       <Container variant={"fullMobileConstrainedPadded"} className="flex-1 py-8">
         <div className="flex flex-col gap-8">
@@ -260,8 +361,19 @@ export default function Links() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-                  <Button onClick={handleAddLink}>Add Link</Button>
+                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAddLink} disabled={isSubmitting || isFetchingTitle}>
+                    {isSubmitting ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Adding...
+                      </>
+                    ) : (
+                      'Add Link'
+                    )}
+                  </Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -274,31 +386,35 @@ export default function Links() {
               type="text"
               placeholder="Search your links..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
 
           {/* Links Grid */}
-          {links.length === 0 ? (
+          {isLoading ? (
+            <div className="flex items-center justify-center py-16">
+              <div className="text-center">
+                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+                <p className="text-muted-foreground">Loading your links...</p>
+              </div>
+            </div>
+          ) : links.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <LinkIcon className="w-12 h-12 text-muted-foreground/50 mb-4" />
-              <h3 className="font-lexend text-xl font-medium mb-2">No links yet</h3>
+              <h3 className="text-xl font-medium mb-2">
+                {searchQuery ? 'No results found' : 'No links yet'}
+              </h3>
               <p className="text-muted-foreground max-w-md">
-                Start adding your favorite links to keep them organized and secure.
-              </p>
-            </div>
-          ) : filteredLinks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Search className="w-12 h-12 text-muted-foreground/50 mb-4" />
-              <h3 className="font-lexend text-xl font-medium mb-2">No results found</h3>
-              <p className="text-muted-foreground max-w-md">
-                Try adjusting your search query to find what you're looking for.
+                {searchQuery 
+                  ? 'Try adjusting your search query to find what you\'re looking for.'
+                  : 'Start adding your favorite links to keep them organized and secure.'
+                }
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredLinks.map((link) => (
+              {links.map((link) => (
                 <div
                   key={link.id}
                   className="group flex flex-col gap-2 p-4 rounded-xl border bg-background/50 hover:bg-background/80 transition-colors cursor-pointer"
@@ -343,8 +459,7 @@ export default function Links() {
             </div>
           )}
         </div>
-        </Container>
+      </Container>
     </>
-
   );
 }
