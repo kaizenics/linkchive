@@ -3,16 +3,19 @@
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import TextType from "@/components/ui/text-type";
+import Link from "next/link";
+import { SignInButton, SignedIn, SignedOut } from '@clerk/nextjs';
+import { useRouter } from 'next/navigation';
 
 
 export function Hero() {
+    const router = useRouter();
+
     return (
-        <div className="">
-            <Container variant={"fullMobileBreakpointPadded"}>
+        <div>
+            <Container variant={"fullMobileConstrainedPadded"}>
                 <div className="flex flex-col min-h-[70vh] justify-center items-center gap-4">
                     <div className="flex flex-col gap-2">
-
-
                         <h1 className="font-lexend text-center text-4xl sm:text-6xl font-semibold mb-4">
                             Save links to{" "} 
                             <TextType
@@ -39,11 +42,24 @@ export function Hero() {
                     </div>
 
                     <div className="flex gap-4 mt-4">
-                        <Button size="lg" variant="default">
-                            Get Started
-                        </Button>
-                        <Button size="lg" variant="outline">
-                            Learn More
+                        <SignedOut>
+                            <SignInButton mode="modal">
+                                <Button size="lg" variant="default">
+                                    Get Started
+                                </Button>
+                            </SignInButton>
+                        </SignedOut>
+                        
+                        <SignedIn>
+                            <Button size="lg" variant="default" onClick={() => router.push('/links')}>
+                                Get Started
+                            </Button>
+                        </SignedIn>
+                        
+                        <Button size="lg" variant="outline" asChild>
+                            <Link href="/about">
+                                Learn More
+                            </Link> 
                         </Button>
                     </div>
                 </div>
