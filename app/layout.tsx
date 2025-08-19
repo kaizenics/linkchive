@@ -26,7 +26,10 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider>
+    <ClerkProvider
+      signInFallbackRedirectUrl="/links"
+      signUpFallbackRedirectUrl="/links"
+    >
       <html lang="en" suppressHydrationWarning>
         <body
           className={`${geistSans.variable} ${manrope.variable} antialiased font-sans`}
