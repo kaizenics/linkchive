@@ -7,7 +7,7 @@ import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp, Check } from "lucide-react";
+import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp, Check, Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -73,11 +73,11 @@ export default function Links() {
   const fetchFolders = async () => {
     try {
       const response = await fetch('/api/folders');
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch folders');
       }
-      
+
       const data = await response.json();
       setFolders(data.folders.map((folder: Folder) => ({
         ...folder,
@@ -101,14 +101,14 @@ export default function Links() {
         params.append('folderId', currentFolder === null ? 'null' : currentFolder.toString());
       }
       params.append('sortBy', sortBy);
-      
+
       const url = `/api/links?${params.toString()}`;
       const response = await fetch(url);
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch links');
       }
-      
+
       const data = await response.json();
       setLinks(data.links.map((link: SavedLink) => ({
         ...link,
@@ -184,7 +184,7 @@ export default function Links() {
         body: JSON.stringify({
           url: newLink.url,
           title: newLink.title,
-        label,
+          label,
           folderId: newLink.folderId,
         }),
       });
@@ -249,10 +249,10 @@ export default function Links() {
       }
 
       const data = await response.json();
-      
-      setLinks(prev => prev.map(link => 
-        link.id === id 
-          ? { ...link, isFavorite: data.isFavorite } 
+
+      setLinks(prev => prev.map(link =>
+        link.id === id
+          ? { ...link, isFavorite: data.isFavorite }
           : link
       ));
 
@@ -281,10 +281,10 @@ export default function Links() {
       }
 
       const data = await response.json();
-      
-      setLinks(prev => prev.map(link => 
-        link.id === linkId 
-          ? { ...link, folderId: data.link.folderId } 
+
+      setLinks(prev => prev.map(link =>
+        link.id === linkId
+          ? { ...link, folderId: data.link.folderId }
           : link
       ));
 
@@ -328,10 +328,10 @@ export default function Links() {
         updatedAt: new Date(data.folder.updatedAt)
       };
 
-      setFolders(prev => prev.map(folder => 
+      setFolders(prev => prev.map(folder =>
         folder.id === selectedFolderToRename ? updatedFolder : folder
       ));
-      
+
       setRenameFolderName("");
       setSelectedFolderToRename(null);
       setIsRenameFolderDialogOpen(false);
@@ -356,15 +356,15 @@ export default function Links() {
       }
 
       setFolders(prev => prev.filter(folder => folder.id !== folderId));
-      
+
       // Refresh links to show updated folder assignments
       fetchLinks(searchQuery || undefined);
-      
+
       // If we're currently viewing the deleted folder, go back to all links
       if (currentFolder === folderId) {
         setCurrentFolder(undefined);
       }
-      
+
       toast.success('Folder deleted successfully!');
     } catch (error) {
       console.error('Error deleting folder:', error);
@@ -384,10 +384,10 @@ export default function Links() {
       }
 
       const data = await response.json();
-      
-      setFolders(prev => prev.map(folder => 
-        folder.id === folderId 
-          ? { ...folder, isPinned: data.isPinned } 
+
+      setFolders(prev => prev.map(folder =>
+        folder.id === folderId
+          ? { ...folder, isPinned: data.isPinned }
           : folder
       ));
 
@@ -401,7 +401,7 @@ export default function Links() {
   const fetchTitleFromUrl = async (url: string) => {
     try {
       setIsFetchingTitle(true);
-      
+
       const urlPattern = /^https?:\/\/.+/;
       if (!urlPattern.test(url)) {
         throw new Error('Invalid URL format');
@@ -416,7 +416,7 @@ export default function Links() {
       });
 
       const data = await response.json();
-      
+
       if (!response.ok) {
         throw new Error(data.error || 'Failed to fetch title');
       }
@@ -428,20 +428,20 @@ export default function Links() {
       }
     } catch (error) {
       console.error('Error fetching title:', error);
-      
+
       try {
         const urlObj = new URL(url);
         let fallbackTitle = urlObj.hostname.replace('www.', '');
-        
+
         if (urlObj.pathname !== '/' && urlObj.pathname.length > 1) {
           const pathParts = urlObj.pathname.split('/').filter(Boolean);
           if (pathParts.length > 0) {
             fallbackTitle += ' - ' + pathParts.slice(0, 2).join(' ');
           }
         }
-        
+
         setNewLink(prev => ({ ...prev, title: fallbackTitle }));
-        
+
         toast.warning("Couldn't fetch page title", {
           description: `Using "${fallbackTitle}" as fallback. You can edit it if needed.`,
         });
@@ -460,15 +460,15 @@ export default function Links() {
     } else if (url.startsWith('http://')) {
       cleanUrl = url.replace('http://', '');
     }
-    
+
     setNewLink(prev => ({ ...prev, url: cleanUrl }));
-    
+
     const fullUrl = cleanUrl.startsWith('http://') || cleanUrl.startsWith('https://') ? cleanUrl : `https://${cleanUrl}`;
-    
+
     const urlPattern = /^https?:\/\/[^\s/$.?#].[^\s]*$/;
     if (urlPattern.test(fullUrl) && (!newLink.title || newLink.title === 'Untitled Link' || newLink.title.includes(' - '))) {
       setTimeout(() => {
-        if (newLink.url === cleanUrl) { 
+        if (newLink.url === cleanUrl) {
           fetchTitleFromUrl(fullUrl);
         }
       }, 1000);
@@ -478,7 +478,7 @@ export default function Links() {
   // Handle search with debounce
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-    
+
     // Debounce search API calls
     setTimeout(() => {
       if (searchQuery === query) {
@@ -508,11 +508,8 @@ export default function Links() {
       <>
         <Navbar />
         <Container variant={"fullMobileConstrainedPadded"} className="flex-1 py-8">
-          <div className="flex items-center justify-center min-h-[50vh]">
-            <div className="text-center">
-              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-              <p className="text-muted-foreground">Loading...</p>
-            </div>
+          <div className="flex items-center justify-center min-h-[70vh]">
+            <Loader2 className="w-14 h-14 animate-spin" />
           </div>
         </Container>
       </>
@@ -529,14 +526,14 @@ export default function Links() {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div className="flex items-center gap-4">
                 <h1 className="font-sans text-2xl sm:text-3xl font-semibold">
-                  {currentFolder === undefined ? 'All Links' : 
-                   currentFolder === null ? 'Unfoldered Links' :
-                   folders.find(f => f.id === currentFolder)?.name || 'Folder'}
+                  {currentFolder === undefined ? 'All Links' :
+                    currentFolder === null ? 'Unfoldered Links' :
+                      folders.find(f => f.id === currentFolder)?.name || 'Folder'}
                 </h1>
                 {currentFolder !== undefined && (
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
+                  <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={() => setCurrentFolder(undefined)}
                     className="text-muted-foreground"
                   >
@@ -544,12 +541,12 @@ export default function Links() {
                   </Button>
                 )}
               </div>
-              
+
               <div className="flex gap-2 w-full sm:w-auto">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" size="lg" className="flex-1 sm:flex-initial">
-              <Plus className="w-5 h-5 mr-2" />
+                      <Plus className="w-5 h-5 mr-2" />
                       Add New
                     </Button>
                   </DropdownMenuTrigger>
@@ -575,17 +572,17 @@ export default function Links() {
                   <DropdownMenuContent>
                     <DropdownMenuItem onClick={() => setSortBy('date')}>
                       <Calendar className="w-4 h-4 mr-1" />
-                      Date Added 
+                      Date Added
                       {sortBy === 'date' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setSortBy('alphabetical')}>
                       <SortAsc className="w-4 h-4 mr-1" />
-                      Alphabetical 
+                      Alphabetical
                       {sortBy === 'alphabetical' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setSortBy('favorites')}>
                       <Heart className="w-4 h-4 mr-1" />
-                      Favorites First 
+                      Favorites First
                       {sortBy === 'favorites' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -622,7 +619,7 @@ export default function Links() {
                         Rename Folder
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         onClick={() => handleDeleteFolder(currentFolder)}
                         className="text-destructive"
                       >
@@ -635,7 +632,7 @@ export default function Links() {
               </div>
             </div>
 
-          {/* Folders Navigation */}
+            {/* Folders Navigation */}
             {isLoading ? (
               <div className="flex gap-2 flex-wrap items-center">
                 <Skeleton className="h-6 w-20" />
@@ -646,34 +643,34 @@ export default function Links() {
               </div>
             ) : folders.length > 0 ? (
               <div className="flex gap-2 flex-wrap items-center">
-                <Badge 
-                  variant={currentFolder === undefined ? "default" : "outline"} 
+                <Badge
+                  variant={currentFolder === undefined ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => setCurrentFolder(undefined)}
                 >
                   <LinkIcon className="w-3 h-3 mr-1" />
                   All Links
                 </Badge>
-                <Badge 
-                  variant={currentFolder === null ? "default" : "outline"} 
+                <Badge
+                  variant={currentFolder === null ? "default" : "outline"}
                   className="cursor-pointer"
                   onClick={() => setCurrentFolder(null)}
                 >
                   <FolderOpen className="w-3 h-3 mr-1" />
                   Unfoldered
                 </Badge>
-                
+
                 {/* Display folders with limit */}
                 {(() => {
                   const FOLDER_DISPLAY_LIMIT = 5;
                   const foldersToShow = showAllFolders ? folders : folders.slice(0, FOLDER_DISPLAY_LIMIT);
-                  
+
                   return (
                     <>
                       {foldersToShow.map((folder) => (
-                        <Badge 
+                        <Badge
                           key={folder.id}
-                          variant={currentFolder === folder.id ? "default" : "outline"} 
+                          variant={currentFolder === folder.id ? "default" : "outline"}
                           className="cursor-pointer flex items-center gap-1"
                           onClick={() => setCurrentFolder(folder.id)}
                         >
@@ -682,7 +679,7 @@ export default function Links() {
                           {folder.name}
                         </Badge>
                       ))}
-                      
+
                       {/* Show All / Show Less button */}
                       {folders.length > FOLDER_DISPLAY_LIMIT && (
                         <Button
@@ -712,144 +709,144 @@ export default function Links() {
           </div>
 
           {/* Add Link Dialog */}
-            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Link</DialogTitle>
-                </DialogHeader>
-                <div className="flex flex-col gap-4">
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium">URL</label>
-                    <div className="flex gap-2">
-                      <div className="relative flex-1">
-                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
-                          https://
-                        </span>
-                        <Input
-                          type="text"
-                          placeholder="example.com"
-                      value={newLink.url}
-                          onChange={(e) => handleUrlChange(e.target.value)}
-                          className="pl-[70px] bg-background/50"
-                        />
-                      </div>
-                      {newLink.url && !isFetchingTitle && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          onClick={() => {
-                            const fullUrl = newLink.url.startsWith('http://') || newLink.url.startsWith('https://') ? newLink.url : `https://${newLink.url}`;
-                            fetchTitleFromUrl(fullUrl);
-                          }}
-                          className="shrink-0"
-                          title="Fetch title from URL"
-                        >
-                          <RefreshCw className="w-5 h-5" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      Title
-                      {isFetchingTitle && (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
-                          Fetching title...
-                        </div>
-                      )}
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder={isFetchingTitle ? "Fetching title..." : "Link Title"}
-                      value={newLink.title}
-                      onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
-                      disabled={isFetchingTitle}
-                    />
-                    {newLink.url && !isFetchingTitle && (
-                      <p className="text-xs text-muted-foreground">
-                        💡 Title was automatically fetched from the URL. You can edit it if needed.
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Tags className="w-4 h-4" /> Label
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      {predefinedLabels.map((label) => (
-                        <Badge
-                          key={label}
-                          variant={selectedLabel === label ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => {
-                            setSelectedLabel(label);
-                            setCustomLabel("");
-                          }}
-                        >
-                          {label}
-                        </Badge>
-                      ))}
-                    </div>
-                    <div className="flex gap-2 mt-2">
+          <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Link</DialogTitle>
+              </DialogHeader>
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium">URL</label>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm pointer-events-none">
+                        https://
+                      </span>
                       <Input
                         type="text"
-                        placeholder="Custom Label"
-                        value={customLabel}
-                        onChange={(e) => {
-                          setCustomLabel(e.target.value);
-                          setSelectedLabel("");
-                        }}
-                        className="flex-1"
+                        placeholder="example.com"
+                        value={newLink.url}
+                        onChange={(e) => handleUrlChange(e.target.value)}
+                        className="pl-[70px] bg-background/50"
                       />
                     </div>
-                  </div>
-                  
-                  {/* Folder Selection */}
-                  <div className="flex flex-col gap-2">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <Folder className="w-4 h-4" /> Folder (Optional)
-                    </label>
-                    <div className="flex flex-wrap gap-2">
-                      <Badge
-                        variant={newLink.folderId === null ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => setNewLink(prev => ({ ...prev, folderId: null }))}
+                    {newLink.url && !isFetchingTitle && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="icon"
+                        onClick={() => {
+                          const fullUrl = newLink.url.startsWith('http://') || newLink.url.startsWith('https://') ? newLink.url : `https://${newLink.url}`;
+                          fetchTitleFromUrl(fullUrl);
+                        }}
+                        className="shrink-0"
+                        title="Fetch title from URL"
                       >
-                        No Folder
-                      </Badge>
-                      {folders.map((folder) => (
-                        <Badge
-                          key={folder.id}
-                          variant={newLink.folderId === folder.id ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => setNewLink(prev => ({ ...prev, folderId: folder.id }))}
-                        >
-                          <Folder className="w-3 h-3 mr-1" />
-                          {folder.name}
-                        </Badge>
-                      ))}
-                    </div>
+                        <RefreshCw className="w-5 h-5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAddLink} disabled={isSubmitting || isFetchingTitle}>
-                    {isSubmitting ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Adding...
-                      </>
-                    ) : (
-                      'Add Link'
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    Title
+                    {isFetchingTitle && (
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
+                        Fetching title...
+                      </div>
                     )}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder={isFetchingTitle ? "Fetching title..." : "Link Title"}
+                    value={newLink.title}
+                    onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
+                    disabled={isFetchingTitle}
+                  />
+                  {newLink.url && !isFetchingTitle && (
+                    <p className="text-xs text-muted-foreground">
+                      💡 Title was automatically fetched from the URL. You can edit it if needed.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Tags className="w-4 h-4" /> Label
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {predefinedLabels.map((label) => (
+                      <Badge
+                        key={label}
+                        variant={selectedLabel === label ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setSelectedLabel(label);
+                          setCustomLabel("");
+                        }}
+                      >
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      type="text"
+                      placeholder="Custom Label"
+                      value={customLabel}
+                      onChange={(e) => {
+                        setCustomLabel(e.target.value);
+                        setSelectedLabel("");
+                      }}
+                      className="flex-1"
+                    />
+                  </div>
+                </div>
+
+                {/* Folder Selection */}
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-medium flex items-center gap-2">
+                    <Folder className="w-4 h-4" /> Folder (Optional)
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    <Badge
+                      variant={newLink.folderId === null ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => setNewLink(prev => ({ ...prev, folderId: null }))}
+                    >
+                      No Folder
+                    </Badge>
+                    {folders.map((folder) => (
+                      <Badge
+                        key={folder.id}
+                        variant={newLink.folderId === folder.id ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => setNewLink(prev => ({ ...prev, folderId: folder.id }))}
+                      >
+                        <Folder className="w-3 h-3 mr-1" />
+                        {folder.name}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
+                  Cancel
+                </Button>
+                <Button onClick={handleAddLink} disabled={isSubmitting || isFetchingTitle}>
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    'Add Link'
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Add Folder Dialog */}
           <Dialog open={isAddFolderDialogOpen} onOpenChange={setIsAddFolderDialogOpen}>
@@ -974,7 +971,7 @@ export default function Links() {
                       onChange={(e) => setNewFolderName(e.target.value)}
                       className="flex-1"
                     />
-                    <Button 
+                    <Button
                       onClick={async () => {
                         if (!newFolderName.trim()) {
                           toast.error('Please enter a folder name');
@@ -1020,7 +1017,7 @@ export default function Links() {
                     </Button>
                   </div>
                 </div>
-          </div>
+              </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => {
                   setIsMoveLinkDialogOpen(false);
@@ -1075,7 +1072,7 @@ export default function Links() {
                 {searchQuery ? 'No results found' : 'No links yet'}
               </h3>
               <p className="text-muted-foreground max-w-md">
-                {searchQuery 
+                {searchQuery
                   ? 'Try adjusting your search query to find what you\'re looking for.'
                   : 'Start adding your favorite links to keep them organized and secure.'
                 }
@@ -1095,9 +1092,9 @@ export default function Links() {
                       </h3>
                     </div>
                     <div className="flex gap-1">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         className="h-8 w-8"
                         onClick={(e) => {
                           e.stopPropagation();
@@ -1109,15 +1106,15 @@ export default function Links() {
                       </Button>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
+                          <Button
+                            variant="ghost"
+                            size="icon"
                             className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
                             title="More options"
                           >
                             <MoreVertical className="w-4 h-4 text-muted-foreground" />
-                      </Button>
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent>
                           <DropdownMenuItem onClick={() => handleOpenLink(link.url)}>
@@ -1132,7 +1129,7 @@ export default function Links() {
                             Move to Folder
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             onClick={() => handleDeleteLink(link.id)}
                             className="text-destructive"
                           >
@@ -1143,12 +1140,12 @@ export default function Links() {
                       </DropdownMenu>
                     </div>
                   </div>
-                  
+
                   <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleOpenLink(link.url)}>
                     <p className="text-sm text-muted-foreground line-clamp-1 flex-1">{link.url}</p>
                     <Badge variant="secondary" className="shrink-0">{link.label}</Badge>
                   </div>
-                  
+
                   <div className="flex items-center justify-between text-xs text-muted-foreground">
                     <span>Added {link.createdAt.toLocaleDateString()}</span>
                     {link.folderId && (
