@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Geist, Manrope } from "next/font/google";
+import { Press_Start_2P, Manrope } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const pressStart2P = Press_Start_2P({
+  variable: "--font-press-start-2p",
   subsets: ["latin"],
+  weight: "400"
 });
 
 const manrope = Manrope({
@@ -29,7 +30,7 @@ export default function RootLayout({
     <ClerkProvider>
       <html lang="en" suppressHydrationWarning>
         <body
-          className={`${geistSans.variable} ${manrope.variable} antialiased font-sans`}
+          className={`${pressStart2P.variable} ${manrope.variable} antialiased font-sans`}
         >
           <ThemeProvider
             attribute="class"

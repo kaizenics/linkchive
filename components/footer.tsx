@@ -10,7 +10,7 @@ export function Footer() {
       <Container variant={"fullMobileConstrainedPadded"}>
         <div className="flex flex-col md:flex-row justify-between items-center gap-8">
           <div className="flex flex-col items-center md:items-start gap-4">
-            <h3 className="text-2xl font-medium text-center md:text-left">linkchive.</h3>
+            <h3 className="font-press-start-2p text-2xl font-medium text-center md:text-left">linkchive.</h3>
             <p className="text-muted-foreground text-center md:text-left text-sm md:text-base">
               Your private bookmark manager, powered by<br className="hidden md:inline" />
               end-to-end encryption and Stacks technology.

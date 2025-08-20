@@ -16,7 +16,7 @@ export function Hero() {
             <Container variant={"fullMobileConstrainedPadded"}>
                 <div className="flex flex-col min-h-[70vh] justify-center items-center gap-4">
                     <div className="flex flex-col gap-2">
-                        <h1 className="text-center text-4xl sm:text-6xl font-black mb-4">
+                        <h1 className="text-center text-3xl sm:text-6xl font-black mb-4">
                             Save links to{" "} 
                             <TextType
                                 text={[
@@ -37,7 +37,7 @@ export function Hero() {
                         </h1>
 
                         <p className="font-sans text-center text-sm md:text-lg mx-auto max-w-3xl">
-                            The bookmark manager with privacy at its core. linkchive uses Stacks technology to encrypt your saved links so only you can see them.
+                            The bookmark manager with privacy at its core. linkchive uses to encrypt your saved links so only you can see them.
                         </p>
                     </div>
 
