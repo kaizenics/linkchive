@@ -7,7 +7,7 @@ import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp, Check } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -574,16 +574,19 @@ export default function Links() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
                     <DropdownMenuItem onClick={() => setSortBy('date')}>
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Date Added {sortBy === 'date' && '✓'}
+                      <Calendar className="w-4 h-4 mr-1" />
+                      Date Added 
+                      {sortBy === 'date' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setSortBy('alphabetical')}>
-                      <SortAsc className="w-4 h-4 mr-2" />
-                      Alphabetical {sortBy === 'alphabetical' && '✓'}
+                      <SortAsc className="w-4 h-4 mr-1" />
+                      Alphabetical 
+                      {sortBy === 'alphabetical' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => setSortBy('favorites')}>
-                      <Heart className="w-4 h-4 mr-2" />
-                      Favorites First {sortBy === 'favorites' && '✓'}
+                      <Heart className="w-4 h-4 mr-1" />
+                      Favorites First 
+                      {sortBy === 'favorites' && <Check className="w-4 h-4 ml-auto" />}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -1046,7 +1049,7 @@ export default function Links() {
           {isLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {Array.from({ length: 6 }).map((_, index) => (
-                <div key={index} className="flex flex-col gap-3 p-4 rounded-xl border bg-background/50">
+                <div key={index} className="flex flex-col gap-3 p-4 rounded-lg border bg-background">
                   <div className="flex items-start justify-between gap-2">
                     <Skeleton className="h-5 w-3/4" />
                     <div className="flex gap-1">
@@ -1083,7 +1086,7 @@ export default function Links() {
               {links.map((link) => (
                 <div
                   key={link.id}
-                  className="flex flex-col gap-3 p-4 rounded-xl border bg-background/50 hover:bg-background/80 transition-colors"
+                  className="flex flex-col gap-3 p-4 rounded-lg border bg-background hover:bg-background/80 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 cursor-pointer" onClick={() => handleOpenLink(link.url)}>
