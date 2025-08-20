@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 
 interface SavedLink {
@@ -631,8 +632,16 @@ export default function Links() {
               </div>
             </div>
 
-                        {/* Folders Navigation */}
-            {folders.length > 0 && (
+          {/* Folders Navigation */}
+            {isLoading ? (
+              <div className="flex gap-2 flex-wrap items-center">
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-6 w-24" />
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-6 w-18" />
+              </div>
+            ) : folders.length > 0 ? (
               <div className="flex gap-2 flex-wrap items-center">
                 <Badge 
                   variant={currentFolder === undefined ? "default" : "outline"} 
@@ -696,7 +705,7 @@ export default function Links() {
                   );
                 })()}
               </div>
-            )}
+            ) : null}
           </div>
 
           {/* Add Link Dialog */}
@@ -1035,11 +1044,26 @@ export default function Links() {
 
           {/* Links Grid */}
           {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="text-center">
-                <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                <p className="text-muted-foreground">Loading your links...</p>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className="flex flex-col gap-3 p-4 rounded-xl border bg-background/50">
+                  <div className="flex items-start justify-between gap-2">
+                    <Skeleton className="h-5 w-3/4" />
+                    <div className="flex gap-1">
+                      <Skeleton className="h-8 w-8 rounded" />
+                      <Skeleton className="h-8 w-8 rounded" />
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-4 flex-1" />
+                    <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-4 w-16 rounded-full" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : links.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
@@ -1064,7 +1088,6 @@ export default function Links() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex-1 cursor-pointer" onClick={() => handleOpenLink(link.url)}>
                       <h3 className="font-medium line-clamp-1 flex items-center gap-2">
-                        {link.isFavorite && <Heart className="w-4 h-4 fill-red-500 text-red-500" />}
                         {link.title}
                       </h3>
                     </div>

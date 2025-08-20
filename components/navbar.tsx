@@ -12,7 +12,7 @@ export function Navbar() {
       <Container variant={"fullMobileConstrainedPadded"}>
         <div className="flex h-20 items-center justify-between">
           <div className="flex">
-            <Link href="/" className="font-medium">
+            <Link href="/" className="font-press-start-2p text-xl text-foreground">
              linkchive.
             </Link>
           </div>
