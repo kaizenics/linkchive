@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState } from "react";
 import { toast } from "sonner";
 import { useUser } from "@clerk/nextjs";
+import { api } from "@/lib/trpc-client";
 import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
@@ -12,27 +13,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
-
-interface SavedLink {
-  id: number;
-  url: string;
-  title: string;
-  label: string;
-  userId: string;
-  folderId: number | null;
-  isFavorite: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface Folder {
-  id: number;
-  name: string;
-  userId: string;
-  isPinned?: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-}
 
 const predefinedLabels = [
   "Work",
@@ -46,8 +26,9 @@ const predefinedLabels = [
 
 export default function Links() {
   const { user, isLoaded } = useUser();
-  const [links, setLinks] = useState<SavedLink[]>([]);
-  const [folders, setFolders] = useState<Folder[]>([]);
+  const utils = api.useUtils();
+  
+  // UI State
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAddFolderDialogOpen, setIsAddFolderDialogOpen] = useState(false);
@@ -63,65 +44,145 @@ export default function Links() {
   const [currentFolder, setCurrentFolder] = useState<number | null | undefined>(undefined);
   const [sortBy, setSortBy] = useState<'date' | 'alphabetical' | 'favorites'>('date');
   const [showAllFolders, setShowAllFolders] = useState(false);
-  const [isFetchingTitle, setIsFetchingTitle] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
 
+  // tRPC Queries
+  const { data: allLinks = [], isLoading: isLoadingLinks } = api.links.getAll.useQuery(undefined, {
+    enabled: isLoaded && !!user,
+  });
+  
+  const { data: folders = [], isLoading: isLoadingFolders } = api.folders.getAll.useQuery(undefined, {
+    enabled: isLoaded && !!user,
+  });
 
-  // Fetch folders from API
-  const fetchFolders = async () => {
-    try {
-      const response = await fetch('/api/folders');
+  // Filter and sort links based on current state
+  const links = React.useMemo(() => {
+    let filteredLinks = allLinks;
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch folders');
-      }
-
-      const data = await response.json();
-      setFolders(data.folders.map((folder: Folder) => ({
-        ...folder,
-        createdAt: new Date(folder.createdAt),
-        updatedAt: new Date(folder.updatedAt)
-      })));
-    } catch (error) {
-      console.error('Error fetching folders:', error);
-      toast.error('Failed to load folders');
+    // Filter by folder
+    if (currentFolder !== undefined) {
+      filteredLinks = allLinks.filter(link => 
+        currentFolder === null ? link.folderId === null : link.folderId === currentFolder
+      );
     }
-  };
 
-  // Fetch links from API
-  const fetchLinks = useCallback(async (query?: string) => {
-    try {
-      setIsLoading(true);
-      const params = new URLSearchParams();
-      if (query) params.append('q', query);
-      // Only filter by folder if currentFolder is explicitly set (not undefined)
-      if (currentFolder !== undefined) {
-        params.append('folderId', currentFolder === null ? 'null' : currentFolder.toString());
-      }
-      params.append('sortBy', sortBy);
-
-      const url = `/api/links?${params.toString()}`;
-      const response = await fetch(url);
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch links');
-      }
-
-      const data = await response.json();
-      setLinks(data.links.map((link: SavedLink) => ({
-        ...link,
-        createdAt: new Date(link.createdAt),
-        updatedAt: new Date(link.updatedAt)
-      })));
-    } catch (error) {
-      console.error('Error fetching links:', error);
-      toast.error('Failed to load links');
-    } finally {
-      setIsLoading(false);
+    // Filter by search query
+    if (searchQuery) {
+      filteredLinks = filteredLinks.filter(link =>
+        link.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        link.url.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        link.label.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
-  }, [currentFolder, sortBy]);
+
+    // Sort links
+    const sortedLinks = [...filteredLinks].sort((a, b) => {
+      switch (sortBy) {
+        case 'alphabetical':
+          return a.title.localeCompare(b.title);
+        case 'favorites':
+          if (a.isFavorite && !b.isFavorite) return -1;
+          if (!a.isFavorite && b.isFavorite) return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case 'date':
+        default:
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }
+    });
+
+    return sortedLinks;
+  }, [allLinks, currentFolder, searchQuery, sortBy]);
+
+  const isLoading = isLoadingLinks || isLoadingFolders;
+
+  // tRPC Mutations
+  const createFolderMutation = api.folders.create.useMutation({
+    onSuccess: () => {
+      utils.folders.getAll.invalidate();
+      toast.success('Folder created successfully!');
+    },
+    onError: (error) => {
+      console.error('Error creating folder:', error);
+      toast.error('Failed to create folder');
+    },
+  });
+
+  const createLinkMutation = api.links.create.useMutation({
+    onSuccess: () => {
+      utils.links.getAll.invalidate();
+      toast.success('Link added successfully!');
+    },
+    onError: (error) => {
+      console.error('Error creating link:', error);
+      toast.error('Failed to add link');
+    },
+  });
+
+  const deleteLinkMutation = api.links.delete.useMutation({
+    onSuccess: () => {
+      utils.links.getAll.invalidate();
+      toast.success('Link deleted successfully!');
+    },
+    onError: (error) => {
+      console.error('Error deleting link:', error);
+      toast.error('Failed to delete link');
+    },
+  });
+
+  const toggleFavoriteMutation = api.links.toggleFavorite.useMutation({
+    onSuccess: (updatedLink) => {
+      utils.links.getAll.invalidate();
+      toast.success(updatedLink.isFavorite ? 'Added to favorites!' : 'Removed from favorites!');
+    },
+    onError: (error) => {
+      console.error('Error toggling favorite:', error);
+      toast.error('Failed to update favorite status');
+    },
+  });
+
+  const updateLinkMutation = api.links.update.useMutation({
+    onSuccess: () => {
+      utils.links.getAll.invalidate();
+    },
+    onError: (error) => {
+      console.error('Error updating link:', error);
+      toast.error('Failed to update link');
+    },
+  });
+
+  const updateFolderMutation = api.folders.update.useMutation({
+    onSuccess: () => {
+      utils.folders.getAll.invalidate();
+      toast.success('Folder updated successfully!');
+    },
+    onError: (error) => {
+      console.error('Error updating folder:', error);
+      toast.error('Failed to update folder');
+    },
+  });
+
+  const deleteFolderMutation = api.folders.delete.useMutation({
+    onSuccess: () => {
+      utils.folders.getAll.invalidate();
+      utils.links.getAll.invalidate(); // Refresh links to show updated folder assignments
+      toast.success('Folder deleted successfully!');
+    },
+    onError: (error) => {
+      console.error('Error deleting folder:', error);
+      toast.error('Failed to delete folder');
+    },
+  });
+
+  const toggleFolderPinMutation = api.folders.togglePin.useMutation({
+    onSuccess: (updatedFolder) => {
+      utils.folders.getAll.invalidate();
+      toast.success(updatedFolder.isPinned ? 'Folder pinned!' : 'Folder unpinned!');
+    },
+    onError: (error) => {
+      console.error('Error toggling folder pin:', error);
+      toast.error('Failed to update folder pin status');
+    },
+  });
 
   // Create new folder
   const handleAddFolder = async () => {
@@ -130,40 +191,15 @@ export default function Links() {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const response = await fetch('/api/folders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: newFolderName.trim(),
-          isPinned: false,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create folder');
-      }
-
-      const data = await response.json();
-      const createdFolder = {
-        ...data.folder,
-        createdAt: new Date(data.folder.createdAt),
-        updatedAt: new Date(data.folder.updatedAt)
-      };
-
-      setFolders(prev => [...prev, createdFolder]);
+    createFolderMutation.mutate(
+      { name: newFolderName.trim() },
+      {
+        onSuccess: () => {
       setNewFolderName("");
       setIsAddFolderDialogOpen(false);
-      toast.success('Folder created successfully!');
-    } catch (error) {
-      console.error('Error creating folder:', error);
-      toast.error('Failed to create folder');
-    } finally {
-      setIsSubmitting(false);
-    }
+        },
+      }
+    );
   };
 
   // Create new link
@@ -174,63 +210,32 @@ export default function Links() {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const response = await fetch('/api/links', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          url: newLink.url,
+    // Ensure URL has protocol
+    const fullUrl = newLink.url.startsWith('http://') || newLink.url.startsWith('https://') 
+      ? newLink.url 
+      : `https://${newLink.url}`;
+
+    createLinkMutation.mutate(
+      {
+        url: fullUrl,
           title: newLink.title,
           label,
-          folderId: newLink.folderId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create link');
-      }
-
-      const data = await response.json();
-      const createdLink = {
-        ...data.link,
-        createdAt: new Date(data.link.createdAt),
-        updatedAt: new Date(data.link.updatedAt)
-      };
-
-      setLinks(prev => [createdLink, ...prev]);
+        folderId: newLink.folderId || undefined,
+      },
+      {
+        onSuccess: () => {
       setNewLink({ url: "", title: "", label: "", folderId: null });
       setCustomLabel("");
       setSelectedLabel("");
       setIsAddDialogOpen(false);
-      toast.success('Link added successfully!');
-    } catch (error) {
-      console.error('Error creating link:', error);
-      toast.error('Failed to add link');
-    } finally {
-      setIsSubmitting(false);
-    }
+        },
+      }
+    );
   };
 
   // Delete link
   const handleDeleteLink = async (id: number) => {
-    try {
-      const response = await fetch(`/api/links/${id}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete link');
-      }
-
-      setLinks(prev => prev.filter(link => link.id !== id));
-      toast.success('Link deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting link:', error);
-      toast.error('Failed to delete link');
-    }
+    deleteLinkMutation.mutate({ id });
   };
 
   const handleOpenLink = (url: string) => {
@@ -239,63 +244,22 @@ export default function Links() {
 
   // Toggle favorite status
   const handleToggleFavorite = async (id: number) => {
-    try {
-      const response = await fetch(`/api/links/${id}/favorite`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle favorite');
-      }
-
-      const data = await response.json();
-
-      setLinks(prev => prev.map(link =>
-        link.id === id
-          ? { ...link, isFavorite: data.isFavorite }
-          : link
-      ));
-
-      toast.success(data.isFavorite ? 'Added to favorites!' : 'Removed from favorites!');
-    } catch (error) {
-      console.error('Error toggling favorite:', error);
-      toast.error('Failed to update favorite status');
-    }
+    toggleFavoriteMutation.mutate({ id });
   };
 
   // Move link to folder
   const handleMoveToFolder = async (linkId: number, folderId: number | null) => {
-    try {
-      const response = await fetch(`/api/links/${linkId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          folderId: folderId,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to move link');
-      }
-
-      const data = await response.json();
-
-      setLinks(prev => prev.map(link =>
-        link.id === linkId
-          ? { ...link, folderId: data.link.folderId }
-          : link
-      ));
-
+    updateLinkMutation.mutate(
+      { id: linkId, folderId: folderId || undefined },
+      {
+        onSuccess: () => {
       const folderName = folderId ? folders.find(f => f.id === folderId)?.name : 'No Folder';
       toast.success(`Link moved to ${folderName}!`);
       setIsMoveLinkDialogOpen(false);
       setSelectedLinkToMove(null);
-    } catch (error) {
-      console.error('Error moving link:', error);
-      toast.error('Failed to move link');
+        },
     }
+    );
   };
 
   // Rename folder
@@ -305,132 +269,50 @@ export default function Links() {
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      const response = await fetch(`/api/folders/${selectedFolderToRename}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: renameFolderName.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to rename folder');
-      }
-
-      const data = await response.json();
-      const updatedFolder = {
-        ...data.folder,
-        createdAt: new Date(data.folder.createdAt),
-        updatedAt: new Date(data.folder.updatedAt)
-      };
-
-      setFolders(prev => prev.map(folder =>
-        folder.id === selectedFolderToRename ? updatedFolder : folder
-      ));
-
+    updateFolderMutation.mutate(
+      { id: selectedFolderToRename, name: renameFolderName.trim() },
+      {
+        onSuccess: () => {
       setRenameFolderName("");
       setSelectedFolderToRename(null);
       setIsRenameFolderDialogOpen(false);
-      toast.success('Folder renamed successfully!');
-    } catch (error) {
-      console.error('Error renaming folder:', error);
-      toast.error('Failed to rename folder');
-    } finally {
-      setIsSubmitting(false);
-    }
+        },
+      }
+    );
   };
 
   // Delete folder
   const handleDeleteFolder = async (folderId: number) => {
-    try {
-      const response = await fetch(`/api/folders/${folderId}`, {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete folder');
-      }
-
-      setFolders(prev => prev.filter(folder => folder.id !== folderId));
-
-      // Refresh links to show updated folder assignments
-      fetchLinks(searchQuery || undefined);
-
+    deleteFolderMutation.mutate(
+      { id: folderId },
+      {
+        onSuccess: () => {
       // If we're currently viewing the deleted folder, go back to all links
       if (currentFolder === folderId) {
         setCurrentFolder(undefined);
       }
-
-      toast.success('Folder deleted successfully!');
-    } catch (error) {
-      console.error('Error deleting folder:', error);
-      toast.error('Failed to delete folder');
-    }
+        },
+      }
+    );
   };
 
   // Toggle folder pin status
   const handleToggleFolderPin = async (folderId: number) => {
-    try {
-      const response = await fetch(`/api/folders/${folderId}/pin`, {
-        method: 'POST',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to toggle folder pin');
-      }
-
-      const data = await response.json();
-
-      setFolders(prev => prev.map(folder =>
-        folder.id === folderId
-          ? { ...folder, isPinned: data.isPinned }
-          : folder
-      ));
-
-      toast.success(data.isPinned ? 'Folder pinned!' : 'Folder unpinned!');
-    } catch (error) {
-      console.error('Error toggling folder pin:', error);
-      toast.error('Failed to update folder pin status');
-    }
+    toggleFolderPinMutation.mutate({ id: folderId });
   };
 
-  const fetchTitleFromUrl = async (url: string) => {
-    try {
-      setIsFetchingTitle(true);
-
-      const urlPattern = /^https?:\/\/.+/;
-      if (!urlPattern.test(url)) {
-        throw new Error('Invalid URL format');
-      }
-
-      const response = await fetch('/api/fetch-title', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to fetch title');
-      }
-
+  // tRPC mutation for fetching title
+  const fetchTitleMutation = api.utils.fetchTitle.useMutation({
+    onSuccess: (data) => {
       if (data.success && data.title) {
         setNewLink(prev => ({ ...prev, title: data.title }));
-      } else {
-        throw new Error('No title found');
       }
-    } catch (error) {
+    },
+    onError: (error) => {
       console.error('Error fetching title:', error);
 
       try {
-        const urlObj = new URL(url);
+        const urlObj = new URL(newLink.url.startsWith('http') ? newLink.url : `https://${newLink.url}`);
         let fallbackTitle = urlObj.hostname.replace('www.', '');
 
         if (urlObj.pathname !== '/' && urlObj.pathname.length > 1) {
@@ -448,9 +330,17 @@ export default function Links() {
       } catch {
         setNewLink(prev => ({ ...prev, title: 'Untitled Link' }));
       }
-    } finally {
-      setIsFetchingTitle(false);
+    },
+  });
+
+  const fetchTitleFromUrl = async (url: string) => {
+    const urlPattern = /^https?:\/\/.+/;
+    if (!urlPattern.test(url)) {
+      toast.error('Invalid URL format');
+      return;
     }
+
+    fetchTitleMutation.mutate({ url });
   };
 
   const handleUrlChange = async (url: string) => {
@@ -475,32 +365,10 @@ export default function Links() {
     }
   };
 
-  // Handle search with debounce
+  // Handle search change (no debounce needed since we filter client-side)
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
-
-    // Debounce search API calls
-    setTimeout(() => {
-      if (searchQuery === query) {
-        fetchLinks(query || undefined);
-      }
-    }, 300);
   };
-
-  // Load data on component mount
-  useEffect(() => {
-    if (isLoaded && user) {
-      fetchFolders();
-      fetchLinks();
-    }
-  }, [isLoaded, user, fetchLinks]);
-
-  // Refetch links when folder or sort changes
-  useEffect(() => {
-    if (isLoaded && user) {
-      fetchLinks(searchQuery || undefined);
-    }
-  }, [currentFolder, sortBy, isLoaded, user, searchQuery, fetchLinks]);
 
   // Don't render until user is loaded
   if (!isLoaded) {
@@ -730,7 +598,7 @@ export default function Links() {
                         className="pl-[70px] bg-background/50"
                       />
                     </div>
-                    {newLink.url && !isFetchingTitle && (
+                    {newLink.url && !fetchTitleMutation.isPending && (
                       <Button
                         type="button"
                         variant="outline"
@@ -750,7 +618,7 @@ export default function Links() {
                 <div className="flex flex-col gap-2">
                   <label className="text-sm font-medium flex items-center gap-2">
                     Title
-                    {isFetchingTitle && (
+                    {fetchTitleMutation.isPending && (
                       <div className="flex items-center gap-1 text-xs text-muted-foreground">
                         <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin"></div>
                         Fetching title...
@@ -759,12 +627,12 @@ export default function Links() {
                   </label>
                   <Input
                     type="text"
-                    placeholder={isFetchingTitle ? "Fetching title..." : "Link Title"}
+                    placeholder={fetchTitleMutation.isPending ? "Fetching title..." : "Link Title"}
                     value={newLink.title}
                     onChange={(e) => setNewLink({ ...newLink, title: e.target.value })}
-                    disabled={isFetchingTitle}
+                    disabled={fetchTitleMutation.isPending}
                   />
-                  {newLink.url && !isFetchingTitle && (
+                  {newLink.url && !fetchTitleMutation.isPending && (
                     <p className="text-xs text-muted-foreground">
                       💡 Title was automatically fetched from the URL. You can edit it if needed.
                     </p>
@@ -831,11 +699,11 @@ export default function Links() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={isSubmitting}>
+                <Button variant="outline" onClick={() => setIsAddDialogOpen(false)} disabled={createLinkMutation.isPending}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddLink} disabled={isSubmitting || isFetchingTitle}>
-                  {isSubmitting ? (
+                <Button onClick={handleAddLink} disabled={createLinkMutation.isPending || fetchTitleMutation.isPending}>
+                  {createLinkMutation.isPending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
                       Adding...
@@ -866,11 +734,11 @@ export default function Links() {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsAddFolderDialogOpen(false)} disabled={isSubmitting}>
+                <Button variant="outline" onClick={() => setIsAddFolderDialogOpen(false)} disabled={createFolderMutation.isPending}>
                   Cancel
                 </Button>
-                <Button onClick={handleAddFolder} disabled={isSubmitting || !newFolderName.trim()}>
-                  {isSubmitting ? (
+                <Button onClick={handleAddFolder} disabled={createFolderMutation.isPending || !newFolderName.trim()}>
+                  {createFolderMutation.isPending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
                       Creating...
@@ -905,11 +773,11 @@ export default function Links() {
                   setIsRenameFolderDialogOpen(false);
                   setRenameFolderName("");
                   setSelectedFolderToRename(null);
-                }} disabled={isSubmitting}>
+                }} disabled={updateFolderMutation.isPending}>
                   Cancel
                 </Button>
-                <Button onClick={handleRenameFolder} disabled={isSubmitting || !renameFolderName.trim()}>
-                  {isSubmitting ? (
+                <Button onClick={handleRenameFolder} disabled={updateFolderMutation.isPending || !renameFolderName.trim()}>
+                  {updateFolderMutation.isPending ? (
                     <>
                       <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2"></div>
                       Renaming...
@@ -972,48 +840,25 @@ export default function Links() {
                       className="flex-1"
                     />
                     <Button
-                      onClick={async () => {
+                      onClick={() => {
                         if (!newFolderName.trim()) {
                           toast.error('Please enter a folder name');
                           return;
                         }
-                        try {
-                          setIsSubmitting(true);
-                          const response = await fetch('/api/folders', {
-                            method: 'POST',
-                            headers: {
-                              'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                              name: newFolderName.trim(),
-                              isPinned: false,
-                            }),
-                          });
-
-                          if (!response.ok) {
-                            throw new Error('Failed to create folder');
-                          }
-
-                          const data = await response.json();
-                          const createdFolder = {
-                            ...data.folder,
-                            createdAt: new Date(data.folder.createdAt),
-                            updatedAt: new Date(data.folder.updatedAt)
-                          };
-
-                          setFolders(prev => [...prev, createdFolder]);
+                        
+                        createFolderMutation.mutate(
+                          { name: newFolderName.trim() },
+                          {
+                            onSuccess: (createdFolder) => {
                           handleMoveToFolder(selectedLinkToMove!, createdFolder.id);
                           setNewFolderName("");
-                        } catch (error) {
-                          console.error('Error creating folder:', error);
-                          toast.error('Failed to create folder');
-                        } finally {
-                          setIsSubmitting(false);
-                        }
+                            },
+                          }
+                        );
                       }}
-                      disabled={isSubmitting || !newFolderName.trim()}
+                      disabled={createFolderMutation.isPending || !newFolderName.trim()}
                     >
-                      Create & Move
+                      {createFolderMutation.isPending ? 'Creating...' : 'Create & Move'}
                     </Button>
                   </div>
                 </div>

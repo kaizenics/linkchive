@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Press_Start_2P, Manrope } from "next/font/google";
 import { ClerkProvider } from '@clerk/nextjs';
 import { ThemeProvider } from "@/components/providers/theme-provider";
+import { TRPCProvider } from "@/components/providers/trpc-provider";
 import { Toaster } from "sonner";
 import "./globals.css";
 
@@ -32,15 +33,17 @@ export default function RootLayout({
         <body
           className={`${pressStart2P.variable} ${manrope.variable} antialiased font-sans`}
         >
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            {children}
-            <Toaster />
-          </ThemeProvider>
+          <TRPCProvider>
+            <ThemeProvider
+              attribute="class"
+              defaultTheme="system"
+              enableSystem
+              disableTransitionOnChange
+            >
+              {children}
+              <Toaster />
+            </ThemeProvider>
+          </TRPCProvider>
         </body>
       </html>
     </ClerkProvider>
