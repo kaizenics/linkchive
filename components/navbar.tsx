@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { SignInButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs'
 import { ModeToggle } from "@/components/mode-toggle"
+import { PWAInstall } from "@/components/pwa-install"
 import { Container } from "@/components/ui/container"
 import { Button } from "@/components/ui/button"
 
@@ -18,6 +19,8 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-2">
+            <PWAInstall />
+            
             <SignedOut>
               <SignInButton mode="modal">
                 <Button variant={"outline"} data-clerk-signin-button>
