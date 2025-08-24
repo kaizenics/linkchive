@@ -8,7 +8,7 @@ import { Navbar } from "@/components/navbar";
 import { Container } from "@/components/ui/container";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp, Check, Loader2 } from "lucide-react";
+import { Plus, Search, Link as LinkIcon, ExternalLink, Trash2, Tags, RefreshCw, Heart, Folder, FolderPlus, ArrowUpDown, Calendar, SortAsc, Edit2, MoreVertical, FolderOpen, Pin, PinOff, ChevronDown, ChevronUp, Check, Loader2, Copy } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -242,11 +242,21 @@ export default function Links() {
     window.open(url, '_blank', 'noopener,noreferrer');
   };
 
+  // Copy link to clipboard
+  const handleCopyLink = async (url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard!');
+    } catch (error) {
+      console.error('Error copying link:', error);
+      toast.error('Failed to copy link');
+    }
+  };
+
   // Toggle favorite status
   const handleToggleFavorite = async (id: number) => {
     toggleFavoriteMutation.mutate({ id });
   };
-
   // Move link to folder
   const handleMoveToFolder = async (linkId: number, folderId: number | null) => {
     updateLinkMutation.mutate(
@@ -965,6 +975,10 @@ export default function Links() {
                           <DropdownMenuItem onClick={() => handleOpenLink(link.url)}>
                             <ExternalLink className="w-4 h-4 mr-2" />
                             Open Link
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleCopyLink(link.url)}>
+                            <Copy className="w-4 h-4 mr-2" />
+                            Copy Link
                           </DropdownMenuItem>
                           <DropdownMenuItem onClick={() => {
                             setSelectedLinkToMove(link.id);
