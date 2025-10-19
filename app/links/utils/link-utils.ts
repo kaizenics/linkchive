@@ -1,4 +1,4 @@
-import type { Link, CurrentFolder, SortBy } from "../components/types";
+import type { Link, CurrentFolder, SortBy } from "./types";
 
 export function filterAndSortLinks(
   allLinks: Link[],
