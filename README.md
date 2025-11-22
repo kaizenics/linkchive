@@ -360,10 +360,6 @@ If you find a bug or have a feature request:
 - Internationalization
 - Accessibility improvements
 
-## License
-
-[Add your license here - e.g., MIT, Apache 2.0, etc.]
-
 ## Acknowledgments
 
 - [Next.js](https://nextjs.org/) - The React Framework
@@ -372,12 +368,4 @@ If you find a bug or have a feature request:
 - [tRPC](https://trpc.io/) - End-to-end typesafe APIs
 - [Drizzle ORM](https://orm.drizzle.team/) - TypeScript ORM
 - [Radix UI](https://www.radix-ui.com/) - Accessible components
-
-## Support
-
-For support, please open an issue on GitHub or contact [your contact information].
-
----
-
-Made with love by the Linkchive team
 
